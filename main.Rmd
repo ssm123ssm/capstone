@@ -1,0 +1,217 @@
+---
+title: "Identification of Myocardial Infarctions using Machine Learning"
+author: "Supun Manathunga"
+date: "20/09/2020"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+       
+
+### Introduction
+
+Since its development in 1902, Electrocardiography (ECG) has evolved steadily to the cost effective, simple and non- invasive 12 lead ECG used in the modern age, which is one of the most widely used investigations worldwide. It remains a cornerstone investigation in the medical field, utilized for the diagnosis of countless medical conditions including cardiac conditions such as acute coronary syndromes and arrhythmias and non cardiac conditions such as electrolyte imbalances. A standard 12 lead ECG records information from 6 limb leads namely lead i, ii, iii, aVR, aVL and aVF and 6 chest leads from V1-V6. These leads look at the heart from different directions and record the electrical signals accordingly and the standard ECG has a p wave, QRS complex and t wave.
+
+The interpretation of ECG is based on the understanding of normal electrical pattern produced by the electrical activity of the heart and the variations in specific conditions. This pattern recognition process requires targeted knowledge and depends on the ability and training of the interpreter. With the development of machine learning techniques, it is possible to train a model to recognize these patterns and interpret the ECG tracing. 
+
+There have been models reported which aimed to classify ECGs as normal and abnormal (Jadhav) or to detect arrhythmias (Batra). However, as a review done in 2017 reveals, studies regarding myocardial infarction (MI) and the affected territory are few. A vast amount of information can be gathered using the ECG, from the presence of an MI up to the affected area, timing and complications. The ECG changes of an MI may include tall T waves in the initial stage, ST segment elevation, left bundle branch block, prolonged QRS complex, increased heart rate (reduced R-R interval) and q waves in an old MI. According to the affected territory involved these changes may be seen in leads ii, iii and aVF in an inferior MI and in the chest leads in an anterior MI.
+
+The availability of an interpretation along with the tracing would be of paramount importance in conditions like myocardial infarctions where time is of the essence. The need to wait for trained personnel for the interpretation of ECG can be avoided and hence delays minimized. In addition, implanted cardioverter defibrillators (ICDs) of patients can also be equipped with this software enabling the detection of MI as well. 
+Therefore, with these applications in mind we aimed to create a model utilizing existing ECG data to detect a MI along with the information regarding the affected territory and timing.
+
+
+### Dataset description
+
+The dataset used was obtained from UCI Machine Learning Repository (H. Altay Guvenir, Burak Acar, Gulsen Demiroz, Ayhan Cekin "A Supervised Machine Learning Algorithm for Arrhythmia Analysis." Proceedings of the Computers in Cardiology Conference, Lund, Sweden, 1997.), which contained 279 predictor variables of 452 observations. The variables included age, sex, height, weight and attributes derived from standard 12 lead ECG tracings. Each observation had been assigned one of sixteen possible outcomes.
+
+### Methodology
+
+The original dataset was filtered to obtain observations categorized as Normal, Ischemic changes, Old Anterior Myocardial Infarction and Old Inferior Myocardial Infarction.
+
+The dataset was randomly split into a training set (70%) and a test set (30%).
+Ninety nine features were selected based on the ECG changes that are observed following a myocardial infarction. 26 predictors that had near-zero variance across the observations were excluded. The selected 73 features were scaled to have a mean of 0 and standard deviation of 1. 
+
+Three machine learning classification models (Bootstrap Aggregating Decision Trees, Random Forest, Artificial Neural Networks) were trained using the training dataset, optimizing for the Kappa statistic and parameter tuning was done with 10 fold repeated cross validation.
+Accuracy and Kappa of the resamples were used to evaluate performance between models. 
+
+Performance of the final model was evaluated using sensitivity, specificity, positive predictive value, negative predictive value and balanced accuracy for each class for the test dataset. 
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(caret)
+library(factoextra)
+library(broom)
+library(readr)
+library(pROC)
+uri <- 'http://ssm123ssm.github.io/projects/data_arrhythmia.csv'
+original <- read_delim(uri,";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+
+```{r include=FALSE}
+tem <- original %>% filter(diagnosis %in% c('1', '2', '3', '4'))
+
+set.seed(2000, sample.kind = 'Rounding')
+test_ind <- as.vector(createDataPartition(tem$diagnosis, p = .3, list = F))
+
+train_set <- tem[-test_ind,]
+test_set <- tem[test_ind,]
+
+train_set <- upSample(train_set[,-280], as.factor(train_set$diagnosis), list = FALSE)
+
+
+selected <- c(1,2,15, 161, 162, 167, 171, 172, 177, 181, 182, 187, 191, 192, 197, 201, 202, 207, 211, 212, 217, 221, 222, 227, 231, 232, 237, 241, 242, 247, 251, 252, 257, 261, 262, 267, 271, 272, 277, 16:20, 28:32, 40:44, 52:56, 64:68, 76:80, 88:92, 100:104, 112:116, 124:128, 136:140, 148:152, 280)
+
+selected_names <- c('age', 'sex', 'HR', 'Q_amp_1', 'R_amp_1', 'T_amp_1','Q_amp_2', 'R_amp_2', 'T_amp_2', 'Q_amp_3', 'R_amp_3', 'T_amp_3', 'Q_amp_avR', 'R_amp_avR', 'T_amp_avR', 'Q_amp_avL', 'R_amp_avL', 'T_amp_avL', 'Q_amp_avF', 'R_amp_avF', 'T_amp_avF', 'Q_amp_v1', 'R_amp_v1', 'T_amp_v1', 'Q_amp_v2', 'R_amp_v2', 'T_amp_v2','Q_amp_v3', 'R_amp_v3', 'T_amp_v3', 'Q_amp_v4', 'R_amp_v4', 'T_amp_v4', 'Q_amp_v5', 'R_amp_v5', 'T_amp_v5', 'Q_amp_v6', 'R_amp_v6', 'T_amp_v6', 'Q_wd_1', 'R_wd_1', 'S_wd_1', 'r_wd_1', 's_wd_1', 'Q_wd_2', 'R_wd_2', 'S_wd_2', 'r_wd_2', 's_wd_2', 'Q_wd_3', 'R_wd_3', 'S_wd_3', 'r_wd_3', 's_wd_3','Q_wd_aVR', 'R_wd_aVR', 'S_wd_aVR', 'r_wd_aVR', 's_wd_aVR', 'Q_wd_aVL', 'R_wd_aVL', 'S_wd_aVL', 'r_wd_aVL', 's_wd_aVL','Q_wd_3aVF', 'R_wd_3aVF', 'S_wd_3aVF', 'r_wd_3aVF', 's_wd_3aVF', 'Q_wd_v1', 'R_wd_v1', 'S_wd_v1', 'r_wd_v1', 's_wd_v1', 'Q_wd_v2', 'R_wd_v2', 'S_wd_v2', 'r_wd_v2', 's_wd_v2', 'Q_wd_v3', 'R_wd_v3', 'S_wd_v3', 'r_wd_v3', 's_wd_v3', 'Q_wd_v4', 'R_wd_v4', 'S_wd_v4', 'r_wd_v4', 's_wd_v4', 'Q_wd_v5', 'R_wd_v5', 'S_wd_v5', 'r_wd_v5', 's_wd_v5', 'Q_wd_v6', 'R_wd_v6', 'S_wd_v6', 'r_wd_v6', 's_wd_v6', 'class')
+
+sel_train <-  train_set %>% select(selected)
+sel_test <- test_set %>% select(selected)
+
+nz <- nzv(sel_train)
+names(sel_train) <- selected_names
+names(sel_test) <- selected_names
+
+sel_train <- sel_train[,-nz]
+sel_test <- sel_test[,-nz]
+
+tm <- sel_train %>% as.matrix()
+tm <- apply(tm, 2, as.numeric)
+tm[!is.finite(tm)] = 0
+tl <- as.factor(paste0('cl_',tm[,ncol(tm)]))
+tm <- tm[,-ncol(tm)]
+
+tmm <- sel_test %>% as.matrix()
+tmm <- apply(tmm, 2, as.numeric)
+tmm[!is.finite(tmm)] = 0
+tll <- as.factor(paste0('cl_',tmm[,ncol(tmm)]))
+tmm <- tmm[,-ncol(tmm)]
+
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#10 fold cross validation
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10,classProbs =  TRUE)
+
+#bagging
+
+
+#treebag
+set.seed(2020)
+mod_treebag <- train(tm,tl, method = 'treebag' ,metric = "Kappa", preProcess = c("center", "scale"), trControl = fitControl)
+
+#rf
+set.seed(2020)
+mod_rf <- train(tm,tl, method = 'rf' ,metric = "Kappa", preProcess = c("center", "scale"), trControl = fitControl, tuneGrid = data.frame(mtry = seq(1,10, by = 2)))
+
+#Neural networks
+library(NeuralNetTools)
+#Multi-Layer Perceptron
+
+set.seed(2020)
+mod_mlpML <- train(tm,tl, method = 'mlpML' ,metric = "Kappa", preProcess = c("center", "scale"), trControl = fitControl, tuneGrid = data.frame(expand.grid(layer1 = 1:5, layer2 = 0:3, layer3 = 0)))
+
+set.seed(2020)
+mod_mlp <- train(tm,tl, method = 'mlp' ,metric = "Kappa", preProcess = c("center", "scale"), trControl = fitControl, tuneGrid = data.frame(size = 1:10))
+
+#mlp - 87.5 rf - 90  tree - 85 
+```
+
+### Results
+
+The Bootstrap Aggregated classifier had a mean accuracy of 0.9788 and a mean Kappa value of 0.9718 for the 100 cross validation resamples. 
+
+The Random Forests model yielded the highest cross validation accuracy (0.9927) and Kappa metric (0.9902) with 3 randomly selected variables for splitting each tree node.
+
+```{r echo=FALSE}
+plot(mod_rf, plotType = 'line')
+```
+
+
+The Feed forward Artificial Neural Network was a Multi-layer Perceptron with one hidden layer. This model yielded the highest cross validation accuracy (0.9772) with 10 hidden units.
+
+```{r echo=FALSE}
+plot(mod_mlp)
+```
+
+The distributions of the evaluation metrics of the cross validation samples and the scatter plot matrix for Kappa statistic of the three models were as follows.
+
+```{r echo=FALSE}
+resamples <- resamples(list(treebag = mod_treebag, RF = mod_rf, preceptron = mod_mlp))
+
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col = rgb(.2, .2, .2, .4)
+theme1$plot.symbol$pch = 16
+theme1$plot.line$col = rgb(1, 0, 0, .7)
+theme1$plot.line$lwd <- 2
+trellis.par.set(theme1)
+
+bwplot(resamples)
+dotplot(resamples)
+```
+
+```{r echo=FALSE, fig.height=6, fig.width=6}
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col = rgb(.2, .2, .2, .4)
+theme1$plot.symbol$pch = 16
+theme1$plot.line$col = rgb(1, 0, 0, .7)
+theme1$plot.line$lwd <- 2
+trellis.par.set(theme1)
+splom(resamples,metric = 'Kappa')
+```
+
+
+All the three models had excellent cross validation accuracies.
+
+The previously unseen test data split was used to evaluate the model performances.
+
+The Random Forests model predicted the classes of the test dataset with an overall accuracy of 0.9167 (95% CI 0.8424 - 0.9633) with 100% sensitivity and specificity for identifying old anterior and old inferior myocardial infarctions. 
+
+The overall accuracies of the Bootstrap Aggregated Decision Trees and the Multi-layer Perceptron models were  0.8958 (95% CI 0.8168 - 0.9489) and 0.8542 (95% CI 0.7674 - 0.9179). Both these models could identify old anterior myocardial infarctions with 100% sensitivity and specificity.
+
+The confusion matrices and evaluation metrics of the three models are summarized below.
+
+```{r echo=FALSE}
+cm_rf <- confusionMatrix(tll, predict(mod_rf, tmm))
+cm_treebag <- confusionMatrix(tll, predict(mod_treebag, tmm))
+cm_mlp <- confusionMatrix(tll, predict(mod_mlp, tmm))
+
+cm_df_rf <- as.data.frame(cm_rf$byClass) %>% mutate(model = 'rf', class = rownames(cm_rf$byClass))
+cm_df_treebag <- as.data.frame(cm_treebag$byClass) %>% mutate(model = 'treebag', class = rownames(cm_rf$byClass))
+cm_df_mlp <- as.data.frame(cm_mlp$byClass) %>% mutate(model = 'mlp', class = rownames(cm_rf$byClass))
+
+cm_df <- rbind(cm_df_rf, cm_df_treebag, cm_df_mlp)
+```
+
+#### Random Forests model
+
+```{r echo=FALSE}
+knitr::kable(cm_rf$table)
+knitr::kable(cm_rf$byClass[,c(1:4,11)])
+```
+
+#### Bootstrap Aggregated Decision Trees 
+
+```{r echo=FALSE}
+knitr::kable(cm_treebag$table)
+knitr::kable(cm_treebag$byClass[,c(1:4,11)])
+```
+
+#### Multi-layer Perceptron
+
+```{r echo=FALSE}
+knitr::kable(cm_mlp$table)
+knitr::kable(cm_mlp$byClass[,c(1:4,11)])
+```
+
+
+
+### Conclusion
+
+We used three machine learning models to detect MI along with timing and territory, using data derived from ECG tracings. The overall accuracies obtained by Random Forests, Bootstrap Aggregated Decision Trees and Multi-layer Perceptron were 0.9167, 0.8958 and 0.8542 respectively. Furthermore, all the models could identify old anterior MIs with a specificity and sensitivity of 100%. Hence, it can be concluded that these models can be utilized in hospital settings to minimize the delays until trained personnel are available for ECG interpretation and to alert the staff of a potential emergency. This study can be expanded by using a more extensive data set, to include more detail regarding timing and territories, as well as the detection and classification of arrhythmias.
+
+\
+\
