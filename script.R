@@ -1,4 +1,12 @@
 # Loading the libraries
+if (!require(tidyverse)) install.packages('tidyverse')
+if (!require(caret)) install.packages('caret')
+if (!require(factoextra)) install.packages('factoextra')
+if (!require(broom)) install.packages('broom')
+if (!require(readr)) install.packages('readr')
+if (!require(pROC)) install.packages('pROC')
+if (!require(NeuralNetTools)) install.packages('NeuralNetTools')
+
 library(tidyverse)
 library(caret)
 library(factoextra)
